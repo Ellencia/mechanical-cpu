@@ -15,7 +15,9 @@ svg{width:100%;height:auto;display:block}
 #crank{cursor:grab;touch-action:none}
 #crank:active{cursor:grabbing}
 svg text{font-family:ui-monospace,Consolas,monospace;fill:var(--fg)}
-pre{margin:0;font:15px/1.7 ui-monospace,Consolas,monospace}
+pre{margin:0;font:14px/1.7 ui-monospace,Consolas,monospace;overflow-x:auto}
+#l-for[data-note]::after{content:attr(data-note);color:var(--ok)}
+.buttons label{display:flex;align-items:center;gap:6px;font-size:16px}
 pre span{display:block;padding:0 6px;border-radius:4px;transition:background .15s}
 pre span.active{background:var(--hl)}
 pre span.true::after{content:"  ← True";color:var(--ok);font-weight:bold}
@@ -48,12 +50,15 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
         <rect x="225" y="184" width="150" height="12" rx="6" fill="var(--no)" opacity=".85"/>
         <circle cx="300" cy="190" r="7" fill="var(--fg)"/>
       </g>
+      <!-- 핀휠 접점 → 1의 자리 기어 구동 -->
+      <line x1="534" y1="304" x2="498" y2="268" stroke="var(--gear2)" stroke-width="3" stroke-dasharray="5 4"/>
+      <polygon points="527,297 541,297 534,311" fill="var(--gear2)" transform="rotate(-45 534 304)"/>
       <g id="crank">
-        <title>크랭크 — 클럭. 1회전 = 명령 1회 실행. 시계방향으로 드래그</title>
-        <circle cx="565" cy="335" r="45" fill="transparent"/>
-        <circle cx="565" cy="335" r="30" fill="none" stroke="var(--gear2)" stroke-width="3"/>
-        <line x1="565" y1="335" x2="565" y2="305" stroke="var(--gear2)" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="565" cy="305" r="10" fill="var(--gear2)"/>
+        <title>크랭크 + 핀휠 — 클럭. 튀어나온 핀 하나가 접점을 지날 때마다 1의 자리가 한 칸. 시계방향으로 드래그</title>
+        <circle cx="565" cy="335" r="48" fill="transparent"/>
+        <circle cx="565" cy="335" r="32" fill="none" stroke="var(--gear2)" stroke-width="3"/>
+        <line x1="565" y1="335" x2="556" y2="317" stroke="var(--gear2)" stroke-width="6" stroke-linecap="round"/>
+        <circle cx="556" cy="317" r="7" fill="var(--gear2)"/>
       </g>
       <circle cx="565" cy="335" r="5" fill="var(--fg)" pointer-events="none"/>
       <text x="565" y="392" text-anchor="middle" font-size="13" style="fill:var(--dim)">드래그해서 돌리기 ↻</text>
@@ -67,17 +72,20 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
       <h3>현재 상태</h3>
       tens = <b id="sTens">0</b><br>
       ones = <b id="sOnes">0</b><br>
+      B &nbsp;&nbsp;= <b id="sB">3</b><br>
       RUN #<b id="sRun">0</b>
       <div id="banner"></div>
     </div>
     <div class="panel">
       <h3>크랭크 1회 = 이 함수 1회</h3>
-<pre><span id="l-def">def crank():</span><span id="l-inc">    ones += 1</span><span id="l-if">    if ones == 10:</span><span id="l-reset">        ones = 0</span><span id="l-tens">        tens += 1</span><span id="l-ovf">        if tens == 10: tens = 0</span></pre>
+<pre><span id="l-def">def crank():   # A += B</span><span id="l-for">    for i in range(B):</span><span id="l-inc">        ones += 1</span><span id="l-if">        if ones == 10:</span><span id="l-reset">            ones = 0</span><span id="l-tens">            tens += 1</span><span id="l-ovf">            if tens == 10: tens = 0</span></pre>
     </div>
     <div class="panel">
       <h3>기계 ↔ 논리</h3>
       <table>
         <tr><td>크랭크 1회전</td><td>클럭 1틱</td></tr>
+        <tr><td>튀어나온 핀 개수</td><td>반복 횟수 <code>range(B)</code></td></tr>
+        <tr><td>핀 하나가 접점 통과</td><td>루프 1바퀴</td></tr>
         <tr><td>기어 각도</td><td>변수(레지스터) 값</td></tr>
         <tr><td>핀이 레버에 닿음</td><td><code>if</code> 조건 True</td></tr>
         <tr><td>레버가 옆 기어를 밂</td><td>carry, <code>tens += 1</code></td></tr>
@@ -89,6 +97,7 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
     <button id="bPrev">◀ 이전</button>
     <button id="bCrank">크랭크 1회 돌리기</button>
     <button id="bAuto">자동</button>
+    <label>B (더할 수) <input type="range" id="bIn" min="0" max="9" value="3"> <b id="bVal">3</b></label>
   </div>
 </main>
 
@@ -109,11 +118,23 @@ function next(ones, tens) {
   }
   return {ones, tens, carry: false, overflow: false};
 }
+// A += B 는 "+= 1 을 B번". 크랭크 1회의 하위 스텝 목록.
+function addSteps(ones, tens, b) {
+  const steps = [];
+  for (let i = 0; i < b; i++) { const n = next(ones, tens); steps.push(n); ({ones, tens} = n); }
+  return steps;
+}
 (function selfCheck() {
   let o = 0, t = 0;
   for (let i = 1; i <= 250; i++) {
     ({ones: o, tens: t} = next(o, t));
     console.assert(o + 10 * t === i % 100, 'counter wrong at', i);
+  }
+  for (let a = 0; a < 100; a++) for (let b = 0; b < 10; b++) {
+    const s = addSteps(a % 10, Math.floor(a / 10), b);
+    const last = s[b - 1] || {ones: a % 10, tens: Math.floor(a / 10)};
+    console.assert(last.ones + 10 * last.tens === (a + b) % 100, 'add wrong', a, b);
+    console.assert(s.filter(x => x.carry).length <= 1, 'B≤9면 carry는 크랭크당 최대 1번', a, b);
   }
 })();
 
@@ -152,48 +173,76 @@ function buildGear(g, c, withPin) {
 buildGear($('tensGear'), T, false);
 buildGear($('onesGear'), O, true);
 
+// --- 핀휠 (오드너 계산기 방식) ---
+// 슬롯 9개 중 B개 핀이 튀어나온다. 핀 k는 크랭크 진행률 f∈[k/10,(k+1)/10]에 접점(315°)을 지난다.
+let B = 3;
+const pins = [];
+for (let k = 0; k < 9; k++) {
+  const [x, y] = polar(C, 32, 297 - 36 * k);
+  pins.push(el('circle', {cx: x, cy: y}, $('crank')));
+}
+function drawPins() {
+  pins.forEach((p, k) => {
+    p.setAttribute('r', k < B ? 7 : 3.5);
+    p.setAttribute('fill', k < B ? 'var(--no)' : 'var(--line)');
+  });
+}
+
 // --- 상태 ---
 // S = 확정된 상태. 각도는 누적값이라 9→0에서 되감지 않고 같은 방향으로 계속 돈다.
 const START = 8;
 const S = {ones: START, tens: 0, run: 0, oa: -STEP * START, ta: 0, ca: 0};
-// cur = 진행 중인 한 스텝. f = 크랭크 진행률 0..1. 버튼도 마우스도 f만 움직인다.
+// cur = 진행 중인 크랭크 1회. f = 크랭크 진행률 0..1. 버튼도 마우스도 f만 움직인다.
 let cur = null;
 const hist = [];
 let busy = false, auto = false;
 
 const rot = (id, a, c) => $(id).setAttribute('transform', `rotate(${a} ${c.cx} ${c.cy})`);
-function begin() { if (!cur) { cur = {n: next(S.ones, S.tens), f: 0}; banner(''); } }
+function begin() {
+  if (cur) return;
+  cur = {steps: addSteps(S.ones, S.tens, B), f: 0};
+  banner(''); delete $('l-for').dataset.note;
+}
 
 // f 하나에서 기계 자세와 코드 강조를 전부 계산한다.
 function render() {
-  const f = cur ? cur.f : 0, n = cur && cur.n;
-  // carry 스텝은 후반부(f .5→1)에 핀이 레버를 밀고, 레버가 tens를 한 칸 민다
-  const g = n && n.carry ? Math.min(1, Math.max(0, (f - .5) * 2)) : 0;
+  const f = cur ? cur.f : 0, steps = cur ? cur.steps : [];
+  const s = Math.min(steps.length, f * 10);          // 접점을 지나간 핀 수 (소수)
+  // n = 지금 접점에 걸린 핀의 하위 스텝, p = 그 진행률. 핀을 다 지나면 마지막 핀을 p=1로 고정
+  const k = Math.max(0, Math.min(Math.floor(s), steps.length - 1)), p = s - k, n = steps[k];
+  const before = steps[k - 1] || S;
+  const carriesDone = steps.slice(0, k).filter(x => x.carry).length;
+  // carry 하위 스텝은 후반부(p .5→1)에 기어 핀이 레버를 밀고, 레버가 tens를 한 칸 민다
+  const g = n && n.carry ? Math.min(1, Math.max(0, (p - .5) * 2)) : 0;
   rot('crank', S.ca + 360 * f, C);
-  rot('onesGear', S.oa - STEP * f, O);
-  rot('tensGear', S.ta - STEP * g, T);
+  rot('onesGear', S.oa - STEP * s, O);
+  rot('tensGear', S.ta - STEP * (carriesDone + g), T);
   rot('lever', 20 * Math.sin(g * Math.PI), L);
 
-  let ones = S.ones;
-  if (cur) {
+  let ones = before.ones, tens = g >= .5 ? n.tens : before.tens;
+  if (cur && !steps.length) { hl('l-for'); $('l-for').dataset.note = '  ← range(0): 안 돎'; }
+  else if (n) {
+    $('l-for').dataset.note = `  ← i = ${k} (총 ${steps.length})`;
     if (!n.carry) {
-      if (f < .9) hl('l-inc'); else { hl('l-if', 'false'); ones = n.ones; }
-    } else if (f < .5) hl('l-inc');
+      if (p < .9) hl('l-inc'); else { hl('l-if', 'false'); ones = n.ones; }
+    } else if (p < .5) hl('l-inc');
     else if (g < .2) { hl('l-if', 'true'); ones = '10'; banner('CARRY — 핀이 레버를 쳤다'); }
     else if (g < .5) { hl('l-reset'); ones = 0; }
     else { hl('l-tens'); ones = 0; }
   }
   $('sOnes').textContent = $('bigOnes').textContent = ones;
-  $('sTens').textContent = $('bigTens').textContent = S.tens;
+  $('sTens').textContent = $('bigTens').textContent = tens;
   $('sRun').textContent = S.run;
 }
 function commit() {
-  const n = cur.n;
+  const steps = cur.steps, last = steps[steps.length - 1];
   hist.push({...S});
-  S.oa -= STEP; S.ca += 360; if (n.carry) S.ta -= STEP;
-  S.ones = n.ones; S.tens = n.tens; S.run++;
+  S.oa -= STEP * steps.length; S.ca += 360;
+  S.ta -= STEP * steps.filter(x => x.carry).length;
+  if (last) { S.ones = last.ones; S.tens = last.tens; }
+  S.run++;
   cur = null;
-  if (n.overflow) { hl('l-ovf', 'true'); banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다'); }
+  if (steps.some(x => x.overflow)) { hl('l-ovf', 'true'); banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다'); }
   render();
 }
 function hl(id, cls) {
@@ -213,20 +262,31 @@ function tween(ms, fn) {
     })(t0);
   });
 }
-function lock(v) { busy = v; $('bPrev').disabled = v || (!hist.length && !cur); $('bCrank').disabled = v; }
+function lock(v) {
+  busy = v;
+  $('bPrev').disabled = v || (!hist.length && !cur);
+  $('bCrank').disabled = v;
+  $('bIn').disabled = v || !!cur;            // 돌리는 도중엔 핀 개수를 못 바꾼다
+}
 
 // 버튼 = f를 자동으로 0→1 재생. 마우스로 반쯤 돌려둔 상태에서 눌러도 거기서 이어간다.
 async function crank() {
   if (busy) return;
   lock(true); begin();
-  const go = (to, ms) => { const from = cur.f; return tween(Math.max(1, ms * (to - from)), p => { cur.f = from + (to - from) * p; }); };
-  if (!cur.n.carry) await go(1, 450);
-  else {
-    // 슬로모션: 핀이 레버에 닿는 순간(f=.5)에서 멈춰 if를 보여준다
-    if (cur.f < .5) { await go(.5, 1800); await wait(900); }
-    await go(1, 2400);
+  // ms = 핀 하나(f 0.1 구간)를 지나는 데 걸리는 시간
+  const go = async (to, ms) => {
+    const from = cur.f;
+    if (to > from) await tween(ms * (to - from) * 10, p => { cur.f = from + (to - from) * p; });
+  };
+  for (let k = 0; k < cur.steps.length; k++) {
+    if (cur.steps[k].carry) {
+      // 슬로모션: 기어 핀이 레버에 닿는 순간에서 멈춰 if를 보여준다
+      if (cur.f < (k + .5) / 10) { await go((k + .5) / 10, 1800); await wait(900); }
+      await go((k + 1) / 10, 2400);
+    } else await go((k + 1) / 10, 350);
   }
-  const overflow = cur.n.overflow;
+  await go(1, 40);                           // 핀 없는 나머지 구간은 빨리 헛돈다
+  const overflow = cur.steps.some(x => x.overflow);
   commit();
   await wait(overflow ? 900 : 250);
   lock(false);
@@ -234,11 +294,17 @@ async function crank() {
 
 function prev() {
   if (busy) return;
-  if (cur) cur = null;                       // 돌리다 만 스텝은 버린다
+  if (cur) cur = null;                       // 돌리다 만 크랭크는 버린다
   else if (hist.length) Object.assign(S, hist.pop());
-  render(); hl(); banner('');
+  render(); hl(); banner(''); delete $('l-for').dataset.note;
   lock(false);
 }
+
+$('bIn').oninput = e => {
+  B = +e.target.value;
+  $('bVal').textContent = $('sB').textContent = B;
+  drawPins();
+};
 
 // --- 마우스로 크랭크 돌리기 ---
 const svg = $('svg'), crankEl = $('crank');
@@ -260,15 +326,20 @@ crankEl.addEventListener('pointermove', e => {
   const a = pointerAngle(e);
   const d = ((a - drag.a + 540) % 360) - 180;   // -180..180, 경계 넘어도 연속
   drag.a = a;
+  begin();
   // 래칫: 스텝 시작점(f=0) 밑으로는 역회전 불가. 되돌리기는 ◀ 이전으로.
   cur.f = Math.max(0, cur.f + d / 360);
-  while (cur.f >= 1) { const rest = cur.f - 1; commit(); begin(); cur.f = rest; }
+  while (cur && cur.f >= 1) {
+    const rest = cur.f - 1;
+    commit();
+    if (rest > 1e-6) { begin(); cur.f = rest; }  // 딱 한 바퀴면 다음 크랭크를 미리 열지 않는다
+  }
   render();
 });
 function endDrag() {
   if (!drag) return;
   drag = null;
-  if (cur && cur.f === 0) cur = null;
+  if (cur && cur.f < 1e-6) cur = null;
   lock(false);
 }
 crankEl.addEventListener('pointerup', endDrag);
@@ -288,7 +359,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') prev();
 });
 
-render(); lock(false);
+drawPins(); render(); lock(false);
 </script>
 </body>
 </html>
