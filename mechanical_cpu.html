@@ -58,10 +58,11 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
         <circle cx="300" cy="190" r="7" fill="var(--fg)"/>
       </g>
       <!-- 핀휠 접점 → 1의 자리 기어 구동 -->
-      <line x1="534" y1="304" x2="498" y2="268" stroke="var(--gear2)" stroke-width="3" stroke-dasharray="5 4"/>
-      <polygon points="527,297 541,297 534,311" fill="var(--gear2)" transform="rotate(-45 534 304)"/>
+      <line x1="528" y1="298" x2="498" y2="268" stroke="var(--gear2)" stroke-width="3" stroke-dasharray="5 4"/>
+      <polygon points="521,291 535,291 528,305" fill="var(--gear2)" transform="rotate(-45 528 298)"/>
+      <g id="phaseRing" pointer-events="none"><title>위상 눈금 — 손잡이가 가리키는 곳이 지금 단계</title></g>
       <g id="crank">
-        <title>크랭크 + 핀휠 — 클럭. 드럼에서 읽은 k만큼 핀이 튀어나오고, 핀 하나가 접점을 지날 때마다 1의 자리가 한 칸. 시계방향으로 드래그</title>
+        <title>크랭크 + 핀휠 — 한 바퀴 = 명령어 사이클 1회, 각도 = 클럭 위상(바깥 눈금). 드럼에서 읽은 k만큼 핀이 튀어나오고, 핀 하나가 접점을 지날 때마다 1의 자리가 한 칸. 시계방향으로 드래그</title>
         <circle cx="565" cy="335" r="48" fill="transparent"/>
         <circle cx="565" cy="335" r="32" fill="none" stroke="var(--gear2)" stroke-width="3"/>
         <line x1="565" y1="335" x2="556" y2="317" stroke="var(--gear2)" stroke-width="6" stroke-linecap="round"/>
@@ -87,17 +88,19 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
       tens = <b id="sTens">0</b><br>
       ones = <b id="sOnes">0</b><br>
       C &nbsp;&nbsp;&nbsp;= <b id="sC">0</b><br>
+      크랭크 <b id="sPh"></b><br>
       RUN #<b id="sRun">0</b>
       <div id="banner"></div>
     </div>
     <div class="panel">
-      <h3>크랭크 1회 = while 1바퀴 = 명령어 1개</h3>
+      <h3>크랭크 1회전 = 명령어 사이클 1회 = while 1바퀴</h3>
 <pre><span id="l-while">while True:</span><span id="l-fetch">    op, k = drum[pc]</span><span id="l-op">    if op == "CLR":</span><span id="l-clr">        ones = tens = C = 0</span><span id="l-add">    elif op == "ADD":</span><span id="l-c0">        C = 0</span><span id="l-for">        for i in range(k):</span><span id="l-inc">            ones += 1</span><span id="l-if">            if ones == 10:</span><span id="l-reset">                ones = 0</span><span id="l-tens">                tens += 1;  C = 1</span><span id="l-ovf">                if tens == 10: tens = 0</span><span id="l-jif">    if op == "JNC" and not C:</span><span id="l-jmp">        pc = k</span><span id="l-else">    else:</span><span id="l-pc">        pc = (pc + 1) % 8</span></pre>
     </div>
     <div class="panel">
       <h3>기계 ↔ 논리</h3>
       <table>
-        <tr><td>크랭크 1회전</td><td>클럭, <code>while</code> 1바퀴</td></tr>
+        <tr><td>크랭크 1회전</td><td>명령어 사이클, <code>while</code> 1바퀴</td></tr>
+        <tr><td>크랭크 각도</td><td>클럭 위상 (판독→해독→실행→PC)</td></tr>
         <tr><td>드럼 한 행</td><td>명령어</td></tr>
         <tr><td>판독 헤드 ▶</td><td>PC</td></tr>
         <tr><td>드럼이 원통</td><td><code>% 8</code></td></tr>
@@ -167,6 +170,24 @@ buildGear($('onesGear'), O, true);
 //  F1 ~ 1  : 드럼이 다음 행(또는 점프면 k행)으로 돈다
 const F0 = .05, F1 = .95;
 const clamp01 = x => Math.min(1, Math.max(0, x));
+
+// --- 위상 눈금: 크랭크 바깥 고정 링. 손잡이(정지 각도 H0)가 가리키는 칸이 지금 단계 ---
+const H0 = Math.atan2(317 - C.cy, 556 - C.cx) * 180 / Math.PI + 90;
+const PHASES = [[0, F0 / 2, 'FETCH 판독', 'var(--jmp)'], [F0 / 2, F0, 'DECODE 해독', 'var(--jmp)'],
+  [F0, F1, 'EXECUTE 실행', 'var(--gear)'], [F1, 1, 'PC 갱신', 'var(--ok)']];
+const RING = 44;
+const phaseSegs = PHASES.map(([a, b, name, col]) => {
+  const [x0, y0] = polar(C, RING, H0 + 360 * a), [x1, y1] = polar(C, RING, H0 + 360 * b - 1);
+  const e = el('path', {d: `M${x0} ${y0} A${RING} ${RING} 0 ${b - a > .5 ? 1 : 0} 1 ${x1} ${y1}`,
+    fill: 'none', stroke: col}, $('phaseRing'));
+  el('title', {}, e).textContent = name;
+  return e;
+});
+// 실행 구간 안의 칸 = 핀 하나가 지나가는 창(f 0.1 = 36°)
+for (let k = 1; k < 9; k++) {
+  const d = H0 + 360 * (F0 + k / 10), [x0, y0] = polar(C, RING - 4, d), [x1, y1] = polar(C, RING + 4, d);
+  el('line', {x1: x0, y1: y0, x2: x1, y2: y1, stroke: 'var(--bg)', 'stroke-width': 2}, $('phaseRing'));
+}
 
 // --- 핀휠 (오드너 계산기 방식) ---
 // 핀 k는 f∈[F0+k/10, F0+(k+1)/10]에 접점(315°)을 지난다 → 로컬 각도 279-36k
@@ -268,7 +289,7 @@ function decodeHl(row, r) {
 // f 하나에서 기계 자세와 코드 강조를 전부 계산한다.
 function render() {
   const f = cur ? cur.f : 0;
-  let oa = S.oa, ta = S.ta, la = 0, ones = S.ones, tens = S.tens, c = S.c, pinsK = 0;
+  let oa = S.oa, ta = S.ta, la = 0, ones = S.ones, tens = S.tens, c = S.c, pinsK = 0, pinTxt = '';
   if (cur) {
     const r = cur.r, row = cur.row, exec = f >= F0 && f < F1;
     if (f < F0) {
@@ -295,6 +316,7 @@ function render() {
       ones = before.ones; tens = g >= .5 ? n.tens : before.tens;
       // 실행이 시작되면 깃발을 내리고(C = 0), 레버가 치는 순간 다시 걸린다(C = 1)
       if (f >= F0) c = carriesDone > 0 || g >= .5 ? 1 : 0;
+      pinTxt = s < steps.length ? ` · 핀 ${k + 1}/${steps.length}` : ' · 핀 없음, 헛돎';
       if (n) {
         const ph = subPhase(n, p, g);
         if (ph.ones !== undefined) ones = ph.ones;
@@ -328,6 +350,10 @@ function render() {
   $('sOnes').textContent = $('bigOnes').textContent = ones;
   $('sTens').textContent = $('bigTens').textContent = tens;
   $('sC').textContent = c;
+  let ph = cur ? PHASES.findIndex(x => f < x[1]) : -1;
+  if (cur && ph < 0) ph = PHASES.length - 1;
+  phaseSegs.forEach((e, i) => { e.setAttribute('stroke-width', i === ph ? 8 : 4); e.setAttribute('opacity', i === ph ? 1 : .45); });
+  $('sPh').textContent = cur ? `${Math.round(f * 360)}° ${PHASES[ph][2]}${ph === 2 ? pinTxt : ''}` : '0° 대기';
   $('sPc').textContent = pc;
   $('sOp').textContent = opText(cur ? cur.row : drum[S.pc]);
   $('sRun').textContent = S.run;
