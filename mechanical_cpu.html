@@ -8,21 +8,21 @@
 :root{--bg:#f4f1ea;--fg:#222;--dim:#888;--panel:#fff;--gear:#b08d57;--gear2:#8a6d3b;--hl:#ffe066;--ok:#2f9e44;--no:#c92a2a;--line:#ddd}
 @media (prefers-color-scheme:dark){:root{--bg:#1c1b19;--fg:#eee;--dim:#888;--panel:#262522;--gear:#b08d57;--gear2:#d9b26f;--hl:#5c4a00;--ok:#51cf66;--no:#ff6b6b;--line:#3a3935}}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Malgun Gothic",sans-serif}
-main{max-width:980px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 320px;gap:16px}
-@media (max-width:800px){main{grid-template-columns:1fr}}
+main{max-width:1060px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 390px;gap:16px}
+@media (max-width:860px){main{grid-template-columns:1fr}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
 svg{width:100%;height:auto;display:block}
 #crank{cursor:grab;touch-action:none}
 #crank:active{cursor:grabbing}
+.cell{cursor:pointer}
 svg text{font-family:ui-monospace,Consolas,monospace;fill:var(--fg)}
-pre{margin:0;font:14px/1.7 ui-monospace,Consolas,monospace;overflow-x:auto}
-#l-for[data-note]::after{content:attr(data-note);color:var(--ok)}
-.buttons label{display:flex;align-items:center;gap:6px;font-size:16px}
-pre span{display:block;padding:0 6px;border-radius:4px;transition:background .15s}
+pre{margin:0;font:13px/1.65 ui-monospace,Consolas,monospace;overflow-x:auto}
+pre span{display:block;padding:0 6px;border-radius:4px;white-space:pre;transition:background .15s}
 pre span.active{background:var(--hl)}
 pre span.true::after{content:"  ← True";color:var(--ok);font-weight:bold}
 pre span.false::after{content:"  ← False";color:var(--no)}
-.state{font:18px/1.6 ui-monospace,Consolas,monospace}
+pre span[data-note]::after{content:attr(data-note);color:var(--ok)}
+.state{font:17px/1.6 ui-monospace,Consolas,monospace}
 .state b{display:inline-block;min-width:3ch}
 #banner{color:var(--no);font-weight:bold;min-height:1.4em}
 .buttons{grid-column:1/-1;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
@@ -37,7 +37,7 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
 <body>
 <main>
   <div class="panel">
-    <svg id="svg" viewBox="0 0 620 400">
+    <svg id="svg" viewBox="0 0 620 650">
       <text x="160" y="28" text-anchor="middle" font-size="14" style="fill:var(--dim)">10의 자리</text>
       <text x="420" y="28" text-anchor="middle" font-size="14" style="fill:var(--dim)">1의 자리</text>
       <!-- 현재 값 포인터 -->
@@ -54,39 +54,46 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
       <line x1="534" y1="304" x2="498" y2="268" stroke="var(--gear2)" stroke-width="3" stroke-dasharray="5 4"/>
       <polygon points="527,297 541,297 534,311" fill="var(--gear2)" transform="rotate(-45 534 304)"/>
       <g id="crank">
-        <title>크랭크 + 핀휠 — 클럭. 튀어나온 핀 하나가 접점을 지날 때마다 1의 자리가 한 칸. 시계방향으로 드래그</title>
+        <title>크랭크 + 핀휠 — 클럭. 드럼에서 읽은 k만큼 핀이 튀어나오고, 핀 하나가 접점을 지날 때마다 1의 자리가 한 칸. 시계방향으로 드래그</title>
         <circle cx="565" cy="335" r="48" fill="transparent"/>
         <circle cx="565" cy="335" r="32" fill="none" stroke="var(--gear2)" stroke-width="3"/>
         <line x1="565" y1="335" x2="556" y2="317" stroke="var(--gear2)" stroke-width="6" stroke-linecap="round"/>
         <circle cx="556" cy="317" r="7" fill="var(--gear2)"/>
       </g>
       <circle cx="565" cy="335" r="5" fill="var(--fg)" pointer-events="none"/>
-      <text x="565" y="392" text-anchor="middle" font-size="13" style="fill:var(--dim)">드래그해서 돌리기 ↻</text>
+      <text x="565" y="400" text-anchor="middle" font-size="13" style="fill:var(--dim)">드래그해서 돌리기 ↻</text>
       <text id="bigTens" x="160" y="365" text-anchor="middle" font-size="40">0</text>
       <text id="bigOnes" x="420" y="365" text-anchor="middle" font-size="40">0</text>
+
+      <text x="84" y="430" font-size="14" style="fill:var(--dim)">프로그램 드럼 — 칸을 눌러 수정 (돌리는 중엔 잠김)</text>
+      <text x="246" y="448" text-anchor="middle" font-size="11" style="fill:var(--dim)">k (핀 개수)</text>
+      <g id="drum"><title>프로그램 드럼 — 한 행이 명령어 하나. 판독 헤드(▶)가 PC</title></g>
+      <polygon id="head" points="84,1 99,9 84,17" fill="var(--no)"/>
     </svg>
   </div>
 
   <div style="display:grid;gap:16px;align-content:start">
     <div class="panel state">
       <h3>현재 상태</h3>
+      PC &nbsp;&nbsp;= <b id="sPc">0</b> &nbsp;<b id="sOp"></b><br>
       tens = <b id="sTens">0</b><br>
       ones = <b id="sOnes">0</b><br>
-      B &nbsp;&nbsp;= <b id="sB">3</b><br>
       RUN #<b id="sRun">0</b>
       <div id="banner"></div>
     </div>
     <div class="panel">
-      <h3>크랭크 1회 = 이 함수 1회</h3>
-<pre><span id="l-def">def crank():   # A += B</span><span id="l-for">    for i in range(B):</span><span id="l-inc">        ones += 1</span><span id="l-if">        if ones == 10:</span><span id="l-reset">            ones = 0</span><span id="l-tens">            tens += 1</span><span id="l-ovf">            if tens == 10: tens = 0</span></pre>
+      <h3>크랭크 1회 = while 1바퀴 = 명령어 1개</h3>
+<pre><span id="l-while">while True:</span><span id="l-fetch">    op, k = drum[pc]</span><span id="l-op">    if op == "CLR":</span><span id="l-clr">        ones = tens = 0</span><span id="l-else">    else:  # ADD k</span><span id="l-for">        for i in range(k):</span><span id="l-inc">            ones += 1</span><span id="l-if">            if ones == 10:</span><span id="l-reset">                ones = 0</span><span id="l-tens">                tens += 1</span><span id="l-ovf">                if tens == 10: tens = 0</span><span id="l-pc">    pc = (pc + 1) % 8</span></pre>
     </div>
     <div class="panel">
       <h3>기계 ↔ 논리</h3>
       <table>
-        <tr><td>크랭크 1회전</td><td>클럭 1틱</td></tr>
-        <tr><td>튀어나온 핀 개수</td><td>반복 횟수 <code>range(B)</code></td></tr>
-        <tr><td>핀 하나가 접점 통과</td><td>루프 1바퀴</td></tr>
-        <tr><td>기어 각도</td><td>변수(레지스터) 값</td></tr>
+        <tr><td>크랭크 1회전</td><td>클럭 1틱, <code>while</code> 1바퀴</td></tr>
+        <tr><td>드럼 한 행</td><td>명령어 (메모리 한 칸)</td></tr>
+        <tr><td>판독 헤드 위치 ▶</td><td>PC (프로그램 카운터)</td></tr>
+        <tr><td>드럼이 원통</td><td>끝나면 처음으로 <code>% 8</code></td></tr>
+        <tr><td>튀어나온 핀 개수</td><td>피연산자 k, <code>range(k)</code></td></tr>
+        <tr><td>기어 각도</td><td>레지스터 값</td></tr>
         <tr><td>핀이 레버에 닿음</td><td><code>if</code> 조건 True</td></tr>
         <tr><td>레버가 옆 기어를 밂</td><td>carry, <code>tens += 1</code></td></tr>
       </table>
@@ -97,7 +104,6 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
     <button id="bPrev">◀ 이전</button>
     <button id="bCrank">크랭크 1회 돌리기</button>
     <button id="bAuto">자동</button>
-    <label>B (더할 수) <input type="range" id="bIn" min="0" max="9" value="3"> <b id="bVal">3</b></label>
   </div>
 </main>
 
@@ -107,7 +113,7 @@ const T = {cx:160, cy:190}, O = {cx:420, cy:190}, C = {cx:565, cy:335}, L = {cx:
 const NS = 'http://www.w3.org/2000/svg';
 const $ = id => document.getElementById(id);
 
-// 순수 논리: 화면과 무관. 아래 self-check가 이걸 검증한다.
+// --- 순수 논리: 화면과 무관. 아래 self-check가 이걸 검증한다. ---
 function next(ones, tens) {
   ones += 1;
   if (ones === 10) {
@@ -118,12 +124,23 @@ function next(ones, tens) {
   }
   return {ones, tens, carry: false, overflow: false};
 }
-// A += B 는 "+= 1 을 B번". 크랭크 1회의 하위 스텝 목록.
-function addSteps(ones, tens, b) {
+// ADD k 는 "+= 1 을 k번". 크랭크 1회의 하위 스텝 목록.
+function addSteps(ones, tens, k) {
   const steps = [];
-  for (let i = 0; i < b; i++) { const n = next(ones, tens); steps.push(n); ({ones, tens} = n); }
+  for (let i = 0; i < k; i++) { const n = next(ones, tens); steps.push(n); ({ones, tens} = n); }
   return steps;
 }
+// 드럼 한 행 실행. CLR은 두 기어를 앞으로 돌려 0에 맞춘다(carry 없이).
+function execRow(ones, tens, row) {
+  if (row.clr) return {clr: true, dOnes: (10 - ones) % 10, dTens: (10 - tens) % 10, ones: 0, tens: 0};
+  const steps = addSteps(ones, tens, row.k), last = steps[steps.length - 1] || {ones, tens};
+  return {clr: false, steps, ones: last.ones, tens: last.tens};
+}
+const opText = row => row.clr ? 'CLR' : `ADD ${row.k}`;
+
+// 드럼 = 프로그램. 행 하나 = {clr, k}. clr이면 k는 무시되지만 토글 복귀용으로 남겨둔다.
+const drum = [1, 2, 3, 4, 5, 6, 7].map(k => ({clr: false, k})).concat([{clr: true, k: 0}]);
+
 (function selfCheck() {
   let o = 0, t = 0;
   for (let i = 1; i <= 250; i++) {
@@ -134,7 +151,16 @@ function addSteps(ones, tens, b) {
     const s = addSteps(a % 10, Math.floor(a / 10), b);
     const last = s[b - 1] || {ones: a % 10, tens: Math.floor(a / 10)};
     console.assert(last.ones + 10 * last.tens === (a + b) % 100, 'add wrong', a, b);
-    console.assert(s.filter(x => x.carry).length <= 1, 'B≤9면 carry는 크랭크당 최대 1번', a, b);
+    console.assert(s.filter(x => x.carry).length <= 1, 'k≤9면 carry는 크랭크당 최대 1번', a, b);
+  }
+  // 드럼 프로그램 실행 vs 그냥 산수
+  o = 8; t = 0; let a = 8, pc = 0;
+  for (let i = 0; i < 40; i++) {
+    const row = drum[pc];
+    ({ones: o, tens: t} = execRow(o, t, row));
+    a = row.clr ? 0 : (a + row.k) % 100;
+    console.assert(o + 10 * t === a, 'program wrong at', i);
+    pc = (pc + 1) % drum.length;
   }
 })();
 
@@ -173,76 +199,168 @@ function buildGear(g, c, withPin) {
 buildGear($('tensGear'), T, false);
 buildGear($('onesGear'), O, true);
 
+// --- 크랭크 1회전의 시간표 (진행률 f) ---
+//   0 ~ F0 : 판독(fetch) — 드럼 행을 읽어 핀휠 핀이 k개 튀어나온다
+//  F0 ~ F1 : 실행 — ADD는 핀 하나당 f 0.1, CLR은 구간 전체
+//  F1 ~ 1  : 드럼이 한 행 넘어감 (PC + 1)
+const F0 = .05, F1 = .95;
+const clamp01 = x => Math.min(1, Math.max(0, x));
+
 // --- 핀휠 (오드너 계산기 방식) ---
-// 슬롯 9개 중 B개 핀이 튀어나온다. 핀 k는 크랭크 진행률 f∈[k/10,(k+1)/10]에 접점(315°)을 지난다.
-let B = 3;
+// 핀 k는 f∈[F0+k/10, F0+(k+1)/10]에 접점(315°)을 지난다 → 로컬 각도 279-36k
 const pins = [];
 for (let k = 0; k < 9; k++) {
-  const [x, y] = polar(C, 32, 297 - 36 * k);
+  const [x, y] = polar(C, 32, 279 - 36 * k);
   pins.push(el('circle', {cx: x, cy: y}, $('crank')));
 }
-function drawPins() {
-  pins.forEach((p, k) => {
-    p.setAttribute('r', k < B ? 7 : 3.5);
-    p.setAttribute('fill', k < B ? 'var(--no)' : 'var(--line)');
+function drawPins(k, grow) {
+  pins.forEach((p, j) => {
+    const on = j < k && grow > 0;
+    p.setAttribute('r', on ? 3.5 + 3.5 * grow : 3.5);
+    p.setAttribute('fill', on ? 'var(--no)' : 'var(--line)');
   });
+}
+
+// --- 드럼 (펼친 모양: 행 = 명령어, 왼쪽 ▶ = 판독 헤드) ---
+const DR = {x: 130, y: 456, h: 22, w: 26};
+const rowY = i => DR.y + i * DR.h;
+const rowHl = el('rect', {x: 82, width: 470, height: DR.h - 2, rx: 4, fill: 'var(--hl)'}, $('drum'));
+const cells = drum.map((_, i) => {
+  const g = $('drum'), y = rowY(i);
+  el('text', {x: 116, y: y + 14, 'text-anchor': 'middle', 'font-size': 12, style: 'fill:var(--dim)'}, g).textContent = i;
+  const pinDots = [];
+  for (let j = 1; j <= 9; j++) {
+    const x = DR.x + (j - 1) * DR.w;
+    el('rect', {x, y, width: DR.w - 4, height: DR.h - 4, rx: 4, class: 'cell', fill: 'transparent', stroke: 'var(--line)'}, g)
+      .addEventListener('click', () => editRow(i, j));
+    pinDots.push(el('circle', {cx: x + (DR.w - 4) / 2, cy: y + (DR.h - 4) / 2, 'pointer-events': 'none'}, g));
+  }
+  const cx = DR.x + 9 * DR.w + 6;
+  const clrBox = el('rect', {x: cx, y, width: 40, height: DR.h - 4, rx: 4, class: 'cell', stroke: 'var(--line)'}, g);
+  clrBox.addEventListener('click', () => editRow(i, 'clr'));
+  const clrText = el('text', {x: cx + 20, y: y + 13, 'text-anchor': 'middle', 'font-size': 11, 'pointer-events': 'none'}, g);
+  clrText.textContent = 'CLR';
+  const label = el('text', {x: cx + 54, y: y + 14, 'font-size': 13, 'pointer-events': 'none'}, g);
+  return {pinDots, clrBox, clrText, label};
+});
+function drawDrum() {
+  cells.forEach((c, i) => {
+    const row = drum[i];
+    c.pinDots.forEach((p, j) => {
+      const on = !row.clr && j < row.k;
+      p.setAttribute('r', on ? 6 : 2);
+      p.setAttribute('fill', on ? 'var(--no)' : 'var(--line)');
+    });
+    c.clrBox.setAttribute('fill', row.clr ? 'var(--no)' : 'transparent');
+    c.clrText.style.fill = row.clr ? '#fff' : 'var(--dim)';
+    c.label.textContent = opText(row);
+  });
+}
+function editRow(i, j) {
+  if (busy || cur) return;                   // 돌리는 도중엔 프로그램을 못 바꾼다
+  const row = drum[i];
+  if (j === 'clr') row.clr = !row.clr;
+  else if (row.clr) { row.clr = false; row.k = j; }
+  else row.k = row.k === j ? j - 1 : j;      // 같은 칸을 다시 누르면 하나 줄임
+  drawDrum(); render();
 }
 
 // --- 상태 ---
 // S = 확정된 상태. 각도는 누적값이라 9→0에서 되감지 않고 같은 방향으로 계속 돈다.
 const START = 8;
-const S = {ones: START, tens: 0, run: 0, oa: -STEP * START, ta: 0, ca: 0};
+const S = {ones: START, tens: 0, pc: 0, run: 0, oa: -STEP * START, ta: 0, ca: 0};
 // cur = 진행 중인 크랭크 1회. f = 크랭크 진행률 0..1. 버튼도 마우스도 f만 움직인다.
 let cur = null;
 const hist = [];
 let busy = false, auto = false;
 
 const rot = (id, a, c) => $(id).setAttribute('transform', `rotate(${a} ${c.cx} ${c.cy})`);
+const setNote = (id, t) => { $(id).dataset.note = t; };
+const clearNotes = () => ['l-fetch', 'l-for'].forEach(id => delete $(id).dataset.note);
 function begin() {
   if (cur) return;
-  cur = {steps: addSteps(S.ones, S.tens, B), f: 0};
-  banner(''); delete $('l-for').dataset.note;
+  const row = {...drum[S.pc]};               // 판독 시점의 행을 복사 = 명령 레지스터
+  cur = {pc: S.pc, row, r: execRow(S.ones, S.tens, row), f: 0};
+  banner(''); clearNotes();
+}
+
+// ADD의 하위 스텝 하나(핀 하나)가 진행률 p일 때 강조할 줄과 ones 표시값
+function subPhase(n, p, g) {
+  if (!n.carry) return p < .9 ? {line: 'l-inc'} : {line: 'l-if', cls: 'false', ones: n.ones};
+  if (p < .5) return {line: 'l-inc'};
+  if (g < .2) return {line: 'l-if', cls: 'true', ones: '10', carry: true};
+  return {line: g < .5 ? 'l-reset' : 'l-tens', ones: 0};
 }
 
 // f 하나에서 기계 자세와 코드 강조를 전부 계산한다.
 function render() {
-  const f = cur ? cur.f : 0, steps = cur ? cur.steps : [];
-  const s = Math.min(steps.length, f * 10);          // 접점을 지나간 핀 수 (소수)
-  // n = 지금 접점에 걸린 핀의 하위 스텝, p = 그 진행률. 핀을 다 지나면 마지막 핀을 p=1로 고정
-  const k = Math.max(0, Math.min(Math.floor(s), steps.length - 1)), p = s - k, n = steps[k];
-  const before = steps[k - 1] || S;
-  const carriesDone = steps.slice(0, k).filter(x => x.carry).length;
-  // carry 하위 스텝은 후반부(p .5→1)에 기어 핀이 레버를 밀고, 레버가 tens를 한 칸 민다
-  const g = n && n.carry ? Math.min(1, Math.max(0, (p - .5) * 2)) : 0;
-  rot('crank', S.ca + 360 * f, C);
-  rot('onesGear', S.oa - STEP * s, O);
-  rot('tensGear', S.ta - STEP * (carriesDone + g), T);
-  rot('lever', 20 * Math.sin(g * Math.PI), L);
-
-  let ones = before.ones, tens = g >= .5 ? n.tens : before.tens;
-  if (cur && !steps.length) { hl('l-for'); $('l-for').dataset.note = '  ← range(0): 안 돎'; }
-  else if (n) {
-    $('l-for').dataset.note = `  ← i = ${k} (총 ${steps.length})`;
-    if (!n.carry) {
-      if (p < .9) hl('l-inc'); else { hl('l-if', 'false'); ones = n.ones; }
-    } else if (p < .5) hl('l-inc');
-    else if (g < .2) { hl('l-if', 'true'); ones = '10'; banner('CARRY — 핀이 레버를 쳤다'); }
-    else if (g < .5) { hl('l-reset'); ones = 0; }
-    else { hl('l-tens'); ones = 0; }
+  const f = cur ? cur.f : 0;
+  let oa = S.oa, ta = S.ta, la = 0, ones = S.ones, tens = S.tens, pinsK = 0;
+  if (cur) {
+    const r = cur.r, exec = f >= F0 && f < F1;
+    pinsK = cur.row.clr ? 0 : cur.row.k;
+    if (f < F0) {
+      setNote('l-fetch', `  ← drum[${cur.pc}] = ${opText(cur.row)}`);
+      if (f < F0 / 2) hl('l-fetch'); else hl('l-op', cur.row.clr ? 'true' : 'false');
+    }
+    if (r.clr) {
+      const q = clamp01((f - F0) / (F1 - F0));
+      oa -= STEP * r.dOnes * q; ta -= STEP * r.dTens * q;
+      if (q >= 1) ones = tens = 0;            // 기어가 0에 도착한 뒤에 값이 바뀐다
+      if (exec) hl('l-clr');
+    } else {
+      const steps = r.steps;
+      const s = Math.min(steps.length, Math.max(0, (f - F0) * 10));   // 접점을 지나간 핀 수 (소수)
+      // n = 지금 접점에 걸린 핀의 하위 스텝, p = 그 진행률. 핀을 다 지나면 마지막 핀을 p=1로 고정
+      const k = Math.max(0, Math.min(Math.floor(s), steps.length - 1)), p = s - k, n = steps[k];
+      const before = steps[k - 1] || S;
+      const carriesDone = steps.slice(0, k).filter(x => x.carry).length;
+      // carry 하위 스텝은 후반부(p .5→1)에 기어 핀이 레버를 밀고, 레버가 tens를 한 칸 민다
+      const g = n && n.carry ? clamp01((p - .5) * 2) : 0;
+      oa -= STEP * s; ta -= STEP * (carriesDone + g); la = 20 * Math.sin(g * Math.PI);
+      ones = before.ones; tens = g >= .5 ? n.tens : before.tens;
+      if (n) {
+        const ph = subPhase(n, p, g);
+        if (ph.ones !== undefined) ones = ph.ones;
+        if (exec) {
+          setNote('l-for', `  ← i = ${k} (총 ${steps.length})`);
+          hl(ph.line, ph.cls);
+          if (ph.carry) banner('CARRY — 핀이 레버를 쳤다');
+        }
+      } else if (exec) { hl('l-for'); setNote('l-for', '  ← range(0): 안 돎'); }
+    }
+    if (f >= F1) hl('l-pc');
   }
+  rot('crank', S.ca + 360 * f, C);
+  rot('onesGear', oa, O);
+  rot('tensGear', ta, T);
+  rot('lever', la, L);
+  drawPins(pinsK, cur ? clamp01(f / F0) : 0);
+
+  const pc = cur ? cur.pc : S.pc, adv = cur ? clamp01((f - F1) / (1 - F1)) : 0;
+  // ponytail: 드럼을 펼쳐 그려서 7→0 넘어갈 때 헤드가 순간이동한다. 원통 렌더링은 필요해지면.
+  $('head').setAttribute('transform', `translate(0 ${rowY(pc + adv)})`);
+  rowHl.setAttribute('y', rowY(pc) - 1);
   $('sOnes').textContent = $('bigOnes').textContent = ones;
   $('sTens').textContent = $('bigTens').textContent = tens;
+  $('sPc').textContent = pc;
+  $('sOp').textContent = opText(cur ? cur.row : drum[S.pc]);
   $('sRun').textContent = S.run;
 }
 function commit() {
-  const steps = cur.steps, last = steps[steps.length - 1];
+  const r = cur.r;
   hist.push({...S});
-  S.oa -= STEP * steps.length; S.ca += 360;
-  S.ta -= STEP * steps.filter(x => x.carry).length;
-  if (last) { S.ones = last.ones; S.tens = last.tens; }
+  S.ca += 360;
+  if (r.clr) { S.oa -= STEP * r.dOnes; S.ta -= STEP * r.dTens; }
+  else {
+    S.oa -= STEP * r.steps.length;
+    S.ta -= STEP * r.steps.filter(x => x.carry).length;
+    if (r.steps.some(x => x.overflow)) banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다');
+  }
+  S.ones = r.ones; S.tens = r.tens;
+  S.pc = (cur.pc + 1) % drum.length;
   S.run++;
   cur = null;
-  if (steps.some(x => x.overflow)) { hl('l-ovf', 'true'); banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다'); }
   render();
 }
 function hl(id, cls) {
@@ -266,27 +384,33 @@ function lock(v) {
   busy = v;
   $('bPrev').disabled = v || (!hist.length && !cur);
   $('bCrank').disabled = v;
-  $('bIn').disabled = v || !!cur;            // 돌리는 도중엔 핀 개수를 못 바꾼다
 }
 
 // 버튼 = f를 자동으로 0→1 재생. 마우스로 반쯤 돌려둔 상태에서 눌러도 거기서 이어간다.
 async function crank() {
   if (busy) return;
   lock(true); begin();
-  // ms = 핀 하나(f 0.1 구간)를 지나는 데 걸리는 시간
-  const go = async (to, ms) => {
+  // 구간 [a, b]를 ms에 걸쳐 재생. 이미 지나간 만큼은 비례해서 줄인다.
+  const go = async (a, b, ms) => {
     const from = cur.f;
-    if (to > from) await tween(ms * (to - from) * 10, p => { cur.f = from + (to - from) * p; });
+    if (b > from) await tween(Math.max(1, ms * (b - from) / Math.max(b - a, 1e-3)), p => { cur.f = from + (b - from) * p; });
   };
-  for (let k = 0; k < cur.steps.length; k++) {
-    if (cur.steps[k].carry) {
-      // 슬로모션: 기어 핀이 레버에 닿는 순간에서 멈춰 if를 보여준다
-      if (cur.f < (k + .5) / 10) { await go((k + .5) / 10, 1800); await wait(900); }
-      await go((k + 1) / 10, 2400);
-    } else await go((k + 1) / 10, 350);
+  await go(0, F0, 700);
+  if (cur.r.clr) await go(F0, F1, 1400);
+  else {
+    const steps = cur.r.steps;
+    for (let k = 0; k < steps.length; k++) {
+      const a = F0 + k / 10, b = a + .1;
+      if (steps[k].carry) {
+        // 슬로모션: 기어 핀이 레버에 닿는 순간에서 멈춰 if를 보여준다
+        if (cur.f < a + .05) { await go(a, a + .05, 900); await wait(900); }
+        await go(a + .05, b, 1200);
+      } else await go(a, b, 350);
+    }
+    await go(F0 + steps.length / 10, F1, 100);   // 핀 없는 나머지 구간은 빨리 헛돈다
   }
-  await go(1, 40);                           // 핀 없는 나머지 구간은 빨리 헛돈다
-  const overflow = cur.steps.some(x => x.overflow);
+  await go(F1, 1, 450);
+  const overflow = !cur.r.clr && cur.r.steps.some(x => x.overflow);
   commit();
   await wait(overflow ? 900 : 250);
   lock(false);
@@ -296,15 +420,9 @@ function prev() {
   if (busy) return;
   if (cur) cur = null;                       // 돌리다 만 크랭크는 버린다
   else if (hist.length) Object.assign(S, hist.pop());
-  render(); hl(); banner(''); delete $('l-for').dataset.note;
+  render(); hl(); banner(''); clearNotes();
   lock(false);
 }
-
-$('bIn').oninput = e => {
-  B = +e.target.value;
-  $('bVal').textContent = $('sB').textContent = B;
-  drawPins();
-};
 
 // --- 마우스로 크랭크 돌리기 ---
 const svg = $('svg'), crankEl = $('crank');
@@ -359,7 +477,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') prev();
 });
 
-drawPins(); render(); lock(false);
+drawDrum(); render(); lock(false);
 </script>
 </body>
 </html>
