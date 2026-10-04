@@ -12,6 +12,8 @@ main{max-width:980px;margin:0 auto;padding:16px;display:grid;grid-template-colum
 @media (max-width:800px){main{grid-template-columns:1fr}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
 svg{width:100%;height:auto;display:block}
+#crank{cursor:grab;touch-action:none}
+#crank:active{cursor:grabbing}
 svg text{font-family:ui-monospace,Consolas,monospace;fill:var(--fg)}
 pre{margin:0;font:15px/1.7 ui-monospace,Consolas,monospace}
 pre span{display:block;padding:0 6px;border-radius:4px;transition:background .15s}
@@ -47,13 +49,14 @@ h3{margin:0 0 8px;font-size:14px;color:var(--dim);font-weight:normal}
         <circle cx="300" cy="190" r="7" fill="var(--fg)"/>
       </g>
       <g id="crank">
-        <title>크랭크 — 클럭. 1회전 = 명령 1회 실행</title>
+        <title>크랭크 — 클럭. 1회전 = 명령 1회 실행. 시계방향으로 드래그</title>
+        <circle cx="565" cy="335" r="45" fill="transparent"/>
         <circle cx="565" cy="335" r="30" fill="none" stroke="var(--gear2)" stroke-width="3"/>
         <line x1="565" y1="335" x2="565" y2="305" stroke="var(--gear2)" stroke-width="6" stroke-linecap="round"/>
-        <circle cx="565" cy="305" r="8" fill="var(--gear2)"/>
+        <circle cx="565" cy="305" r="10" fill="var(--gear2)"/>
       </g>
-      <circle cx="565" cy="335" r="5" fill="var(--fg)"/>
-      <text x="565" y="390" text-anchor="middle" font-size="13" style="fill:var(--dim)">크랭크 ↻</text>
+      <circle cx="565" cy="335" r="5" fill="var(--fg)" pointer-events="none"/>
+      <text x="565" y="392" text-anchor="middle" font-size="13" style="fill:var(--dim)">드래그해서 돌리기 ↻</text>
       <text id="bigTens" x="160" y="365" text-anchor="middle" font-size="40">0</text>
       <text id="bigOnes" x="420" y="365" text-anchor="middle" font-size="40">0</text>
     </svg>
@@ -150,22 +153,48 @@ buildGear($('tensGear'), T, false);
 buildGear($('onesGear'), O, true);
 
 // --- 상태 ---
-// 각도는 누적값. 9→0에서 되감지 않고 같은 방향으로 계속 돈다.
-const S = {ones: 0, tens: 0, run: 0, oa: 0, ta: 0, ca: 0, la: 0};
+// S = 확정된 상태. 각도는 누적값이라 9→0에서 되감지 않고 같은 방향으로 계속 돈다.
+const START = 8;
+const S = {ones: START, tens: 0, run: 0, oa: -STEP * START, ta: 0, ca: 0};
+// cur = 진행 중인 한 스텝. f = 크랭크 진행률 0..1. 버튼도 마우스도 f만 움직인다.
+let cur = null;
 const hist = [];
 let busy = false, auto = false;
 
 const rot = (id, a, c) => $(id).setAttribute('transform', `rotate(${a} ${c.cx} ${c.cy})`);
-function draw() {
-  rot('onesGear', S.oa, O); rot('tensGear', S.ta, T);
-  rot('crank', S.ca, C);    rot('lever', S.la, L);
-}
-function showState(onesText) {
-  $('sOnes').textContent = onesText ?? S.ones;
-  $('sTens').textContent = S.tens;
+function begin() { if (!cur) { cur = {n: next(S.ones, S.tens), f: 0}; banner(''); } }
+
+// f 하나에서 기계 자세와 코드 강조를 전부 계산한다.
+function render() {
+  const f = cur ? cur.f : 0, n = cur && cur.n;
+  // carry 스텝은 후반부(f .5→1)에 핀이 레버를 밀고, 레버가 tens를 한 칸 민다
+  const g = n && n.carry ? Math.min(1, Math.max(0, (f - .5) * 2)) : 0;
+  rot('crank', S.ca + 360 * f, C);
+  rot('onesGear', S.oa - STEP * f, O);
+  rot('tensGear', S.ta - STEP * g, T);
+  rot('lever', 20 * Math.sin(g * Math.PI), L);
+
+  let ones = S.ones;
+  if (cur) {
+    if (!n.carry) {
+      if (f < .9) hl('l-inc'); else { hl('l-if', 'false'); ones = n.ones; }
+    } else if (f < .5) hl('l-inc');
+    else if (g < .2) { hl('l-if', 'true'); ones = '10'; banner('CARRY — 핀이 레버를 쳤다'); }
+    else if (g < .5) { hl('l-reset'); ones = 0; }
+    else { hl('l-tens'); ones = 0; }
+  }
+  $('sOnes').textContent = $('bigOnes').textContent = ones;
+  $('sTens').textContent = $('bigTens').textContent = S.tens;
   $('sRun').textContent = S.run;
-  $('bigOnes').textContent = S.ones;
-  $('bigTens').textContent = S.tens;
+}
+function commit() {
+  const n = cur.n;
+  hist.push({...S});
+  S.oa -= STEP; S.ca += 360; if (n.carry) S.ta -= STEP;
+  S.ones = n.ones; S.tens = n.tens; S.run++;
+  cur = null;
+  if (n.overflow) { hl('l-ovf', 'true'); banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다'); }
+  render();
 }
 function hl(id, cls) {
   document.querySelectorAll('pre span').forEach(s => s.className = '');
@@ -179,52 +208,71 @@ function tween(ms, fn) {
     const t0 = performance.now();
     (function f(now) {
       const p = Math.min(1, (now - t0) / ms);
-      fn(ease(p)); draw();
+      fn(ease(p)); render();
       p < 1 ? requestAnimationFrame(f) : done();
     })(t0);
   });
 }
-function lock(v) { busy = v; $('bPrev').disabled = v || !hist.length; $('bCrank').disabled = v; }
+function lock(v) { busy = v; $('bPrev').disabled = v || (!hist.length && !cur); $('bCrank').disabled = v; }
 
+// 버튼 = f를 자동으로 0→1 재생. 마우스로 반쯤 돌려둔 상태에서 눌러도 거기서 이어간다.
 async function crank() {
   if (busy) return;
-  lock(true); banner('');
-  hist.push({...S});
-  const n = next(S.ones, S.tens);
-  const o0 = S.oa, c0 = S.ca, t0 = S.ta;
-  hl('l-inc');
-
-  if (!n.carry) {
-    await tween(450, p => { S.oa = o0 - STEP * p; S.ca = c0 + 360 * p; });
-    S.ones = n.ones; S.run++; showState();
-    hl('l-if', 'false');
-    await wait(250);
-  } else {
-    // 슬로모션. A: 반 칸 돌아서 핀이 레버에 닿음 = 레지스터가 잠깐 10
-    await tween(900, p => { S.oa = o0 - STEP / 2 * p; S.ca = c0 + 180 * p; });
-    showState('10'); hl('l-if', 'true'); banner('CARRY — 핀이 레버를 쳤다');
-    await wait(900);
-    // B: 같은 회전이 이어지며 레버가 tens 기어를 한 칸 민다
-    await tween(1200, p => {
-      S.oa = o0 - STEP / 2 - STEP / 2 * p; S.ca = c0 + 180 + 180 * p;
-      S.la = 20 * Math.sin(p * Math.PI / 2); S.ta = t0 - STEP * p;
-      if (p > .5 && $('l-tens').className === '') { hl('l-tens'); }
-      else if (p <= .5) { hl('l-reset'); S.ones = 0; showState(); }
-    });
-    S.tens = n.tens; S.run++; showState();
-    if (n.overflow) { hl('l-ovf', 'true'); banner('OVERFLOW — 99 다음은 00. 3번째 기어가 없다'); await wait(900); }
-    // C: 레버 복귀
-    await tween(300, p => { S.la = 20 * (1 - p); });
+  lock(true); begin();
+  const go = (to, ms) => { const from = cur.f; return tween(Math.max(1, ms * (to - from)), p => { cur.f = from + (to - from) * p; }); };
+  if (!cur.n.carry) await go(1, 450);
+  else {
+    // 슬로모션: 핀이 레버에 닿는 순간(f=.5)에서 멈춰 if를 보여준다
+    if (cur.f < .5) { await go(.5, 1800); await wait(900); }
+    await go(1, 2400);
   }
+  const overflow = cur.n.overflow;
+  commit();
+  await wait(overflow ? 900 : 250);
   lock(false);
 }
 
 function prev() {
-  if (busy || !hist.length) return;
-  Object.assign(S, hist.pop());
-  draw(); showState(); hl(); banner('');
+  if (busy) return;
+  if (cur) cur = null;                       // 돌리다 만 스텝은 버린다
+  else if (hist.length) Object.assign(S, hist.pop());
+  render(); hl(); banner('');
   lock(false);
 }
+
+// --- 마우스로 크랭크 돌리기 ---
+const svg = $('svg'), crankEl = $('crank');
+let drag = null;
+function pointerAngle(e) {
+  const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+  const q = p.matrixTransform(svg.getScreenCTM().inverse());
+  return Math.atan2(q.y - C.cy, q.x - C.cx) * 180 / Math.PI;
+}
+crankEl.addEventListener('pointerdown', e => {
+  if (busy) return;
+  e.preventDefault();
+  crankEl.setPointerCapture(e.pointerId);
+  drag = {a: pointerAngle(e)};
+  lock(true); begin();
+});
+crankEl.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const a = pointerAngle(e);
+  const d = ((a - drag.a + 540) % 360) - 180;   // -180..180, 경계 넘어도 연속
+  drag.a = a;
+  // 래칫: 스텝 시작점(f=0) 밑으로는 역회전 불가. 되돌리기는 ◀ 이전으로.
+  cur.f = Math.max(0, cur.f + d / 360);
+  while (cur.f >= 1) { const rest = cur.f - 1; commit(); begin(); cur.f = rest; }
+  render();
+});
+function endDrag() {
+  if (!drag) return;
+  drag = null;
+  if (cur && cur.f === 0) cur = null;
+  lock(false);
+}
+crankEl.addEventListener('pointerup', endDrag);
+crankEl.addEventListener('pointercancel', endDrag);
 
 async function autoLoop() {
   while (auto) { await crank(); await wait(200); }
@@ -240,7 +288,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') prev();
 });
 
-draw(); showState(); lock(false);
+render(); lock(false);
 </script>
 </body>
 </html>
